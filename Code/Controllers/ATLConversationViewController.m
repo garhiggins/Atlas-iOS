@@ -46,6 +46,7 @@
 @property (nonatomic) BOOL shouldShareLocation;
 @property (nonatomic) BOOL canDisableAddressBar;
 @property (nonatomic) dispatch_queue_t animationQueue;
+@property (nonatomic) dispatch_queue_t dataSourceSetupQueue;
 
 @end
 
@@ -110,6 +111,7 @@ static NSInteger const ATLPhotoActionSheet = 1000;
     _sectionFooters = [NSHashTable weakObjectsHashTable];
     _objectChanges = [NSMutableArray new];
     _animationQueue = dispatch_queue_create("com.atlas.animationQueue", DISPATCH_QUEUE_SERIAL);
+    _dataSourceSetupQueue = dispatch_queue_create("com.atlas.dataSourceSetupQueue", DISPATCH_QUEUE_SERIAL);
 }
 
 - (void)loadView
@@ -238,11 +240,14 @@ static NSInteger const ATLPhotoActionSheet = 1000;
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Data source must return an `LYRQuery` object." userInfo:nil];
         }
     }
-    
-    self.conversationDataSource = [ATLConversationDataSource dataSourceWithLayerClient:self.layerClient query:query];
-    self.conversationDataSource.queryController.delegate = self;
-    self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
-    [self.collectionView reloadData];
+    dispatch_async(self.dataSourceSetupQueue, ^{
+        self.conversationDataSource = [ATLConversationDataSource dataSourceWithLayerClient:self.layerClient query:query];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.conversationDataSource.queryController.delegate = self;
+            self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
+            [self.collectionView reloadData];
+        });
+    });
 }
 
 #pragma mark - Conntroller Setup
