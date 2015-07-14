@@ -240,12 +240,18 @@ static NSInteger const ATLPhotoActionSheet = 1000;
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Data source must return an `LYRQuery` object." userInfo:nil];
         }
     }
+    self.conversationDataSource = [ATLConversationDataSource dataSourceWithLayerClient:self.layerClient query:query];
+
+    // Asynchronously executes the query controller to ensure the controller appears on screen as fast as possible without any main thread loading.
+    __weak typeof(self) weakSelf = self;
     dispatch_async(self.dataSourceSetupQueue, ^{
-        self.conversationDataSource = [ATLConversationDataSource dataSourceWithLayerClient:self.layerClient query:query];
+        NSError *error;
+        BOOL success = [weakSelf.conversationDataSource.queryController execute:&error];
+        if (!success) NSLog(@"LayerKit failed to execute query with error: %@", error);
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.conversationDataSource.queryController.delegate = self;
-            self.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
-            [self.collectionView reloadData];
+            weakSelf.conversationDataSource.queryController.delegate = self;
+            weakSelf.showingMoreMessagesIndicator = [self.conversationDataSource moreMessagesAvailable];
+            [weakSelf.collectionView reloadData];
         });
     });
 }

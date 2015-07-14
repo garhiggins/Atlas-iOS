@@ -46,10 +46,6 @@ NSInteger const ATLQueryControllerPaginationWindow = 30;
         _queryController = [layerClient queryControllerWithQuery:query];
         _queryController.updatableProperties = [NSSet setWithObjects:@"parts.transferStatus", @"recipientStatusByUserID", @"sentAt", nil];
         _queryController.paginationWindow = -numberOfMessagesToDisplay;
-        
-        NSError *error = nil;
-        BOOL success = [_queryController execute:&error];
-        if (!success) NSLog(@"LayerKit failed to execute query with error: %@", error);
     }
     return self;
 }

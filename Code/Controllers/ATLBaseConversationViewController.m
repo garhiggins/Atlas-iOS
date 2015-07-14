@@ -110,6 +110,12 @@ static CGFloat const ATLMaxScrollDistanceFromBottom = 150;
     [self updateBottomCollectionViewInset];
 }
 
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    self.firstAppearance = YES;
+}
+
 - (void)viewDidLayoutSubviews
 {
     [super viewDidLayoutSubviews];
@@ -121,7 +127,6 @@ static CGFloat const ATLMaxScrollDistanceFromBottom = 150;
     }
     
     if (self.isFirstAppearance) {
-        self.firstAppearance = NO;
         // We use the content size of the actual collection view when calculating the ammount to scroll. Hence, we layout the collection view before scrolling to the bottom.
         [self.view layoutIfNeeded];
         [self scrollToBottomAnimated:NO];
