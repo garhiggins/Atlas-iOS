@@ -27,6 +27,7 @@
 
 NSString *const ATLGIFAccessibilityLabel = @"Message: GIF";
 NSString *const ATLImageAccessibilityLabel = @"Message: Image";
+NSString *const ATLVideoAccessibilityLabel = @"Message: Video";
 
 CGFloat const ATLMessageCellMinimumHeight = 10.0f;
 CGFloat const ATLMessageCellHorizontalMargin = 16.0f;
@@ -80,7 +81,6 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
     _messageTextFont = [UIFont systemFontOfSize:17];
     _messageTextColor = [UIColor blackColor];
     _messageLinkTextColor = [UIColor whiteColor];
-    _messageTextCheckingTypes = NSTextCheckingTypeLink;
     _bubbleViewColor = ATLBlueColor();
     _bubbleViewCornerRadius = 17.0f;
     
@@ -124,6 +124,8 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
         [self configureBubbleViewForGIFContent];
     } else if ([messagePart.MIMEType isEqualToString:ATLMIMETypeLocation]) {
         [self configureBubbleViewForLocationContent];
+    } else if ([messagePart.MIMEType isEqualToString:ATLMIMETypeVideoMOV]) {
+        [self configureBubbleViewForVideoContent];
     }
 }
 
@@ -205,6 +207,49 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
     }
     
     [self.bubbleView updateWithImage:displayingImage width:size.width];
+}
+
+- (void)configureBubbleViewForVideoContent
+{
+    self.accessibilityLabel = ATLVideoAccessibilityLabel;
+    
+    LYRMessagePart *fullResVideoPart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeVideoMOV);
+    if (fullResVideoPart && ((fullResVideoPart.transferStatus == LYRContentTransferAwaitingUpload) ||
+                             (fullResVideoPart.transferStatus == LYRContentTransferUploading))) {
+        // Set self for delegation, if full resolution message part
+        // hasn't been uploaded yet, or is still uploading.
+        LYRProgress *progress = fullResVideoPart.progress;
+        [progress setDelegate:self];
+        self.progress = progress;
+        [self.bubbleView updateProgressIndicatorWithProgress:progress.fractionCompleted visible:YES animated:NO];
+    } else {
+        [self.bubbleView updateProgressIndicatorWithProgress:1.0 visible:NO animated:YES];
+    }
+
+    UIImage *displayingImage;
+    LYRMessagePart *previewImagePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeVideoMOVPreview);
+    
+    /* TODO: If there's no preview, use a black image
+    if (!previewImagePart) {
+        // If no preview image part found, resort to the full-resolution image.
+        previewImagePart = fullResImagePart;
+    }
+    */
+    
+    if (previewImagePart.fileURL) {
+        displayingImage = [UIImage imageWithContentsOfFile:previewImagePart.fileURL.path];
+    } else {
+        displayingImage = [UIImage imageWithData:previewImagePart.data];
+    }
+    
+    CGSize size = CGSizeZero;
+    LYRMessagePart *sizePart = ATLMessagePartForMIMEType(self.message, ATLMIMETypeImageSize);
+    if (sizePart) {
+        size = ATLImageSizeForJSONData(sizePart.data);
+        size = ATLConstrainImageSizeToCellSize(size);
+    }    
+    
+    [self.bubbleView updateWithVideoThumbnail:displayingImage width:size.width];
 }
 
 - (void)configureBubbleViewForGIFContent
@@ -304,12 +349,6 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
     if ([self messageContainsTextContent]) [self configureBubbleViewForTextContent];
 }
 
-- (void)setMessageTextCheckingTypes:(NSTextCheckingType)messageLinkTypes
-{
-    _messageTextCheckingTypes = messageLinkTypes;
-    self.bubbleView.textCheckingTypes = messageLinkTypes;
-}
-
 - (void)setBubbleViewColor:(UIColor *)bubbleViewColor
 {
     _bubbleViewColor = bubbleViewColor;
@@ -348,7 +387,7 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
 {
     NSDictionary *attributes = @{NSFontAttributeName : self.messageTextFont, NSForegroundColorAttributeName : self.messageTextColor};
     NSMutableAttributedString *attributedString = [[NSMutableAttributedString alloc] initWithString:text attributes:attributes];
-    NSArray *linkResults = ATLTextCheckingResultsForText(text, self.messageTextCheckingTypes);
+    NSArray *linkResults = ATLLinkResultsForText(text);
     for (NSTextCheckingResult *result in linkResults) {
         NSDictionary *linkAttributes = @{NSForegroundColorAttributeName : self.messageLinkTextColor,
                                          NSUnderlineStyleAttributeName : @(NSUnderlineStyleSingle)};
@@ -406,7 +445,7 @@ CGFloat const ATLAvatarImageTailPadding = 7.0f;
     CGFloat height = 0;
     if ([part.MIMEType isEqualToString:ATLMIMETypeTextPlain]) {
         height = [self cellHeightForTextMessage:message inView:view];
-    } else if ([part.MIMEType isEqualToString:ATLMIMETypeImageJPEG] || [part.MIMEType isEqualToString:ATLMIMETypeImagePNG] || [part.MIMEType isEqualToString:ATLMIMETypeImageGIF]) {
+    } else if ([part.MIMEType isEqualToString:ATLMIMETypeImageJPEG] || [part.MIMEType isEqualToString:ATLMIMETypeImagePNG] || [part.MIMEType isEqualToString:ATLMIMETypeImageGIF]|| [part.MIMEType isEqualToString:ATLMIMETypeVideoMOV]) {
         height = [self cellHeightForImageMessage:message];
     } else if ([part.MIMEType isEqualToString:ATLMIMETypeLocation]) {
         height = ATLMessageBubbleMapHeight;
