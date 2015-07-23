@@ -36,9 +36,9 @@ extern NSString *const ATLUserDidTapLinkNotification;
 /**
  - @abstract Posted when a user taps a phone number in a message bubble.
  - */
--extern NSString *const ATLUserDidTapPhoneNumberNotification;
--
--/**
+extern NSString *const ATLUserDidTapPhoneNumberNotification;
+
+/**
 
 /**
  @abstract The `ATLMessageBubbleView` class provides a lightweight, customizable view that 
@@ -91,7 +91,7 @@ extern NSString *const ATLUserDidTapLinkNotification;
  */
 @property (nonatomic) UIImageView *bubbleImageView;
 
--/**
+/**
   - @abstract The NSTextCheckingTypes that are set as links
   - @discussion Currently supports NSTextCheckingTypeLink and NSTextCheckingTypePhoneNumber
   - @default NSTextCheckingTypeLink

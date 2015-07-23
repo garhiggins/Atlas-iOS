@@ -366,7 +366,6 @@ typedef NS_ENUM(NSInteger, ATLBubbleViewContentType) {
                                                       inTextContainer:textContainer
                              fractionOfDistanceBetweenInsertionPoints:NULL];
     NSArray *results = ATLTextCheckingResultsForText(self.bubbleViewLabel.attributedText.string, self.textCheckingTypes);
-    NSArray *results = ATLLinkResultsForText(self.bubbleViewLabel.attributedText.string);
     for (NSTextCheckingResult *result in results) {
         if (NSLocationInRange(characterIndex, result.range)) {
             if (result.resultType == NSTextCheckingTypeLink && self.textCheckingTypes & NSTextCheckingTypeLink) {
