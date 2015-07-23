@@ -22,7 +22,6 @@
 #import <MapKit/MapKit.h>
 #import "ATLProgressView.h"
 
-
 extern CGFloat const ATLMessageBubbleLabelVerticalPadding;
 extern CGFloat const ATLMessageBubbleLabelHorizontalPadding;
 extern CGFloat const ATLMessageBubbleMapWidth;
@@ -33,6 +32,13 @@ extern CGFloat const ATLMessageBubbleDefaultHeight;
  @abstract Posted when a user taps a link in a message bubble.
  */
 extern NSString *const ATLUserDidTapLinkNotification;
+
+/**
+ - @abstract Posted when a user taps a phone number in a message bubble.
+ - */
+-extern NSString *const ATLUserDidTapPhoneNumberNotification;
+-
+-/**
 
 /**
  @abstract The `ATLMessageBubbleView` class provides a lightweight, customizable view that 
@@ -56,7 +62,6 @@ extern NSString *const ATLUserDidTapLinkNotification;
  @abstract Tells the bubble view to display the thumbnail for a video.
  */
 - (void)updateWithVideoThumbnail:(UIImage *)image width:(CGFloat)width;
-
 
 /**
  @abstract Tells the bubble view to display a map image for a given location.
@@ -85,5 +90,12 @@ extern NSString *const ATLUserDidTapLinkNotification;
  @abstract The view that handles displaying an image.
  */
 @property (nonatomic) UIImageView *bubbleImageView;
+
+-/**
+  - @abstract The NSTextCheckingTypes that are set as links
+  - @discussion Currently supports NSTextCheckingTypeLink and NSTextCheckingTypePhoneNumber
+  - @default NSTextCheckingTypeLink
+  - */
+@property (nonatomic) NSTextCheckingType textCheckingTypes;
 
 @end
