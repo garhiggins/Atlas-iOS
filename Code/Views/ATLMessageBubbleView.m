@@ -22,7 +22,6 @@
 #import "ATLMessagingUtilities.h"
 #import "ATLPlayView.h"
 
-
 CGFloat const ATLMessageBubbleLabelVerticalPadding = 8.0f;
 CGFloat const ATLMessageBubbleLabelHorizontalPadding = 13.0f;
 
@@ -81,12 +80,12 @@ typedef NS_ENUM(NSInteger, ATLBubbleViewContentType) {
         [_bubbleViewLabel setContentCompressionResistancePriority:UILayoutPriorityDefaultHigh + 1 forAxis:UILayoutConstraintAxisHorizontal];
         [self addSubview:_bubbleViewLabel];
         
-        _textCheckingTypes = NSTextCheckingTypeLink;
-        
         _bubbleImageView = [[UIImageView alloc] init];
         _bubbleImageView.translatesAutoresizingMaskIntoConstraints = NO;
         _bubbleImageView.contentMode = UIViewContentModeScaleAspectFill;
         [self addSubview:_bubbleImageView];
+        
+        _textCheckingTypes = NSTextCheckingTypeLink;
         
         _playView = [[ATLPlayView alloc]initWithFrame:CGRectMake(0,0, 50.0f, 50.0f)];
         _playView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -308,7 +307,6 @@ typedef NS_ENUM(NSInteger, ATLBubbleViewContentType) {
         while (superview && ![superview isKindOfClass:[UIScrollView class]]) {
             superview = superview.superview;
         }
-        
         if ([superview isKindOfClass:[UIScrollView class]]) {
             UIScrollView *containingScrollView = (UIScrollView *)superview;
             CGPoint contentOffset = containingScrollView.contentOffset;
@@ -338,7 +336,6 @@ typedef NS_ENUM(NSInteger, ATLBubbleViewContentType) {
             [menuController setTargetRect:CGRectMake(self.frame.size.width / 2, 0.0f, 0.0f, 0.0f) inView:self];
             menuController.arrowDirection = UIMenuControllerArrowDefault;
         }
-        
         [menuController setMenuVisible:YES animated:YES];
     }
 }
