@@ -22,6 +22,7 @@
 #import "ATLMessagingUtilities.h"
 #import "ATLMediaInputStream.h"
 #import <MobileCoreServices/MobileCoreServices.h>
+@import AVFoundation;
 
 /**
  @abstract Fetches the ALAsset from library based on given `assetURL`.
@@ -69,16 +70,6 @@ static float const ATLMediaAttachmentDefaultThumbnailJPEGCompression = 0.5f;
 
 @end
 
-@interface ATLVideoMediaAttachment : ATLMediaAttachment
-
-@property (nonatomic) UIImage *inputImage;
-@property (nonatomic) NSInputStream *videoStream;
-
-- (instancetype)initWithVideo:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize videoAssetPath:(NSURL *)assetURL;
-ALAsset *ATLVideoAssetTestObtainLastImageFromAssetLibrary(ALAssetsLibrary *library);
-
-@end
-
 @interface ATLLocationMediaAttachment : ATLMediaAttachment
 
 - (instancetype)initWithLocation:(CLLocation *)location;
@@ -123,14 +114,26 @@ ALAsset *ATLVideoAssetTestObtainLastImageFromAssetLibrary(ALAssetsLibrary *libra
         self.mediaInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
         self.mediaMIMEType = (__bridge NSString *)(UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)(asset.defaultRepresentation.UTI), kUTTagClassMIMEType));
         
+        if ([self.mediaMIMEType isEqualToString:@"video/quicktime"])
+        {
+            self.mediaMIMEType = ATLMIMETypeVideoMP4; 
+        }
+        
         // --------------------------------------------------------------------
         // Prepare the input stream and MIMEType for the thumbnail.
         // --------------------------------------------------------------------
-        self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
         if ([self.mediaMIMEType isEqualToString:ATLMIMETypeImageGIF]) {
+            self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
             ((ATLMediaInputStream *)self.thumbnailInputStream).maximumSize = ATLDefaultGIFThumbnailSize;
             self.thumbnailMIMEType = ATLMIMETypeImageGIFPreview;
+        } else if ([self.mediaMIMEType isEqualToString:ATLMIMETypeVideoMP4]) {
+            UIImage *image = [self getThumbNail:assetURL];
+            self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithImage:image metadata:nil];
+            ((ATLMediaInputStream *)self.thumbnailInputStream).maximumSize = thumbnailSize;
+            ((ATLMediaInputStream *)self.thumbnailInputStream).compressionQuality = ATLMediaAttachmentDefaultThumbnailJPEGCompression;
+            self.thumbnailMIMEType = ATLMIMETypeVideoMP4Preview;
         } else {
+            self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
             ((ATLMediaInputStream *)self.thumbnailInputStream).maximumSize = thumbnailSize;
             ((ATLMediaInputStream *)self.thumbnailInputStream).compressionQuality = ATLMediaAttachmentDefaultThumbnailJPEGCompression;
             self.thumbnailMIMEType = ATLMIMETypeImageJPEGPreview;
@@ -161,89 +164,37 @@ ALAsset *ATLVideoAssetTestObtainLastImageFromAssetLibrary(ALAssetsLibrary *libra
         // --------------------------------------------------------------------
         // Set the type - public property.
         // --------------------------------------------------------------------
-        if ([assetType isEqualToString:ALAssetTypePhoto]) {
+        if ([assetType isEqualToString:ALAssetTypePhoto] ) {
             self.mediaType = ATLMediaAttachmentTypeImage;
+            self.textRepresentation = @"Attachment: Image";
+
+        } else if ([assetType isEqualToString:ALAssetTypeVideo])
+        {
+            self.mediaType = ATLMediaAttachmentTypeVideo;
+            self.textRepresentation = @"Attachment: Video";
+
         } else {
             return nil;
         }
         
-        self.textRepresentation = @"Attachment: Image";
     }
     return self;
 }
 
-@end
-
-@implementation ATLVideoMediaAttachment
-
-- (instancetype)initWithVideo:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize videoAssetPath:(NSURL *)assetURL
+-(UIImage *)getThumbNail:(NSURL *)stringPath
 {
-    self = [super init];
-    if (self) {
-        if (!image) {
-            @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:[NSString stringWithFormat:@"Cannot initialize %@ with `nil` image.", self.superclass] userInfo:nil];
-        }
-        self.inputImage = image;
-        
-        // --------------------------------------------------------------------
-        // Prepare the input stream and MIMEType for the full size media.
-        // --------------------------------------------------------------------
-        ALAssetsLibrary *assetLibrary = [[ALAssetsLibrary alloc] init];
-        ALAsset *asset = ATLMediaAttachmentFromAssetURL(assetURL, assetLibrary);
-        
-        self.mediaInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
-        
-        self.mediaInputStream = [ATLMediaInputStream mediaInputStreamWithAssetURL:asset.defaultRepresentation.url];
-        ((ATLMediaInputStream *)self.mediaInputStream).maximumSize = 480;
-        ((ATLMediaInputStream *)self.mediaInputStream).compressionQuality = .8;
-        //self.mediaInputStream = stream;
-        self.mediaMIMEType = ATLMIMETypeVideoMOV;
-        
-        // --------------------------------------------------------------------
-        // Prepare the input stream and MIMEType for the thumbnail.
-        // --------------------------------------------------------------------
-        self.thumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithImage:image metadata:metadata];
-        ((ATLMediaInputStream *)self.thumbnailInputStream).maximumSize = thumbnailSize;
-        ((ATLMediaInputStream *)self.thumbnailInputStream).compressionQuality = ATLMediaAttachmentDefaultThumbnailJPEGCompression;
-        self.thumbnailMIMEType = ATLMIMETypeVideoMOVPreview;
-        
-        // --------------------------------------------------------------------
-        // Prepare the input stream and MIMEType for the metadata
-        // about the asset.
-        // --------------------------------------------------------------------
-        NSDictionary *imageMetadata = @{ @"width": @(image.size.width),
-                                         @"height": @(image.size.height),
-                                         @"orientation": @(image.imageOrientation) };
-        NSError *JSONSerializerError;
-        NSData *JSONData = [NSJSONSerialization dataWithJSONObject:imageMetadata options:NSJSONWritingPrettyPrinted error:&JSONSerializerError];
-        if (JSONData) {
-            self.metadataInputStream = [NSInputStream inputStreamWithData:JSONData];
-            self.metadataMIMEType = ATLMIMETypeImageSize;
-        } else {
-            NSLog(@"ATLMediaAttachment failed to generate a JSON object for image metadata");
-        }
-        
-        // --------------------------------------------------------------------
-        // Prepare the attachable thumbnail meant for the UI (which is inlined
-        // with text in the message composer).
-        //
-        // Since we got the full resolution UIImage, we need to create a
-        // thumbnail size in the initializer.
-        // --------------------------------------------------------------------
-        ATLMediaInputStream *attachableThumbnailInputStream = [ATLMediaInputStream mediaInputStreamWithImage:image metadata:metadata];
-        attachableThumbnailInputStream.maximumSize = thumbnailSize;
-        attachableThumbnailInputStream.compressionQuality = ATLMediaAttachmentDefaultThumbnailJPEGCompression;
-        NSData *resampledImageData = ATLMediaAttachmentDataFromInputStream(attachableThumbnailInputStream);
-        self.attachableThumbnailImage = [UIImage imageWithData:resampledImageData scale:image.scale];
-        
-        // --------------------------------------------------------------------
-        // Set the type and the rest of the public properties.
-        // --------------------------------------------------------------------
-        self.thumbnailSize = thumbnailSize;
-        self.mediaType = ATLMediaAttachmentTypeVideo;
-        self.textRepresentation = @"Attachment: Video";
+    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:stringPath options:nil];
+    AVAssetImageGenerator *generate = [[AVAssetImageGenerator alloc] initWithAsset:asset];
+    generate.appliesPreferredTrackTransform = YES;
+    NSError *err = NULL;
+    CMTime time = CMTimeMake(1, 60);
+    CGImageRef imgRef = [generate copyCGImageAtTime:time actualTime:NULL error:&err];
+    
+    if (err) {
+        NSLog(@"Failed to create thumbnail!");
     }
-    return self;
+    
+    return [[UIImage alloc] initWithCGImage:imgRef];
 }
 
 @end
@@ -366,11 +317,6 @@ ALAsset *ATLVideoAssetTestObtainLastImageFromAssetLibrary(ALAssetsLibrary *libra
 + (instancetype)mediaAttachmentWithImage:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize;
 {
     return [[ATLImageMediaAttachment alloc] initWithImage:image metadata:(NSDictionary *)metadata thumbnailSize:thumbnailSize];
-}
-
-+ (instancetype)mediaAttachmentWithVideo:(UIImage *)image metadata:(NSDictionary *)metadata thumbnailSize:(NSUInteger)thumbnailSize videoAssetPath:(NSURL *)assetURL
-{
-    return [[ATLVideoMediaAttachment alloc] initWithVideo:image metadata:(NSDictionary *)metadata thumbnailSize:thumbnailSize videoAssetPath:assetURL];
 }
 
 + (instancetype)mediaAttachmentWithText:(NSString *)text

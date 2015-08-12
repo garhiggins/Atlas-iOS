@@ -436,6 +436,7 @@ static size_t ATLMediaInputStreamPutBytesIntoStreamCallback(void *assetStreamRef
     // 2. Nil out export session and do other cleanups.
     self.exportSession = nil;
     self.tempVideoURL = nil;
+    self.dataConsumed = nil;
 }
 
 -(void)removeTempFile
@@ -492,7 +493,6 @@ static size_t ATLMediaInputStreamPutBytesIntoStreamCallback(void *assetStreamRef
 
 -(void)consumeData
 {
-    
     self.exportedVideoFileInputStream = [[NSInputStream alloc]initWithURL:self.exportSession.outputURL];
     NSMutableData *dataFromStream = [NSMutableData data];
     uint8_t *buffer = malloc(self.numberOfBytesRequested);
@@ -515,12 +515,25 @@ static size_t ATLMediaInputStreamPutBytesIntoStreamCallback(void *assetStreamRef
             ATLMediaInputStreamLog(@"Was unable to read file");
             self.mediaStreamStatus = NSStreamStatusAtEnd;
         }
+        // Consumption continues, after flow control logic in readBytes:len: signals it.
+        dispatch_sync(self.transferBufferSerialGuard, ^{
+            ATLMediaInputStreamLog(@"consumer: waiting for request from stream (have %lu bytes ready)", bytesRead);
+            dispatch_semaphore_wait(self.streamFlowProviderSemaphore, DISPATCH_TIME_FOREVER);
+        });
+        
+        // Copy buffer into NSData that was consumed by the file input stream.
+        NSUInteger bytesConsumed = MIN(self.numberOfBytesRequested, bytesRead);
+        NSData *dataConsumed = [NSData dataWithBytes:buffer length:bytesConsumed];
+        self.dataConsumed = dataConsumed;
+        ATLMediaInputStreamLog(@"consumer: consumed %lu bytes (requested %lu bytes, provided %lu bytes)", (unsigned long)dataConsumed.length, (unsigned long)assetStream.numberOfBytesRequested, length);
+        
+        // Signal the requester data is ready for consumption.
+        dispatch_semaphore_signal(self.streamFlowRequesterSemaphore);
+        ATLMediaInputStreamLog(@"return %lu", (unsigned long)bytesConsumed);
     } while (bytesRead != 0);
     free(buffer);
     
     [self.exportedVideoFileInputStream close];
-    
-    self.dataConsumed = dataFromStream;
     
     if (bytesRead == 0) {
         self.mediaStreamStatus = NSStreamStatusAtEnd;
@@ -528,7 +541,6 @@ static size_t ATLMediaInputStreamPutBytesIntoStreamCallback(void *assetStreamRef
         self.mediaStreamStatus = NSStreamStatusError;
     }
     dispatch_semaphore_signal(self.streamFlowRequesterSemaphore);
-    
 }
 
 @end
@@ -674,8 +686,9 @@ static size_t ATLMediaInputStreamPutBytesIntoStreamCallback(void *assetStreamRef
         return -1; // Operation failed, see self.streamError;
     }
     
-    // Copy the consumed image data to `buffer`.
-    [self.dataConsumed getBytes:buffer];
+    // Copy the consumed data to `buffer`.
+    //[self.dataConsumed getBytes:buffer]; // can this overflow?
+    [self.dataConsumed getBytes:buffer length:bytesToConsume];
     ATLMediaInputStreamLog(@"input stream: passed data to receiver");
     
     // Clear transfer buffer.
