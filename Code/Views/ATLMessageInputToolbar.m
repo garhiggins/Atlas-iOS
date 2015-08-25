@@ -50,7 +50,6 @@ static CGFloat const ATLVerticalMargin = 7.0f;
 
 // Compose View Button Constants
 static CGFloat const ATLLeftAccessoryButtonWidth = 40.0f;
-static CGFloat const ATLRightAccessoryButtonWidth = 46.0f;
 static CGFloat const ATLButtonHeight = 28.0f;
 
 + (void)initialize
@@ -105,7 +104,12 @@ static CGFloat const ATLButtonHeight = 28.0f;
 {
     [super layoutSubviews];
     
+    CGFloat sendTextWidth = 0;
+
     if (self.firstAppearance) {
+        [self configureRightAccessoryButtonForText];
+        sendTextWidth = [self.rightAccessoryButton sizeThatFits:CGSizeMake(MAXFLOAT, MAXFLOAT)].width;
+
         [self configureRightAccessoryButtonState];
         self.firstAppearance = NO;
     }
@@ -128,7 +132,9 @@ static CGFloat const ATLButtonHeight = 28.0f;
     leftButtonFrame.size.height = ATLButtonHeight;
     leftButtonFrame.origin.x = ATLLeftButtonHorizontalMargin;
 
-    rightButtonFrame.size.width = ATLRightAccessoryButtonWidth;
+    if (sendTextWidth > 0) {
+        rightButtonFrame.size.width = sendTextWidth;
+    }
     rightButtonFrame.size.height = ATLButtonHeight;
     rightButtonFrame.origin.x = CGRectGetWidth(frame) - CGRectGetWidth(rightButtonFrame) - ATLRightButtonHorizontalMargin;
 
